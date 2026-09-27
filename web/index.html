@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rutas/Experto — Planificador de transporte masivo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar__brand">
+    <span class="topbar__mark" aria-hidden="true"></span>
+    <div>
+      <div class="topbar__title">
+        RUTAS / EXPERTO
+        <span class="badge-ia" title="Sistema basado en reglas lógicas con motor de inferencia">
+          <span class="badge-ia__pulso" aria-hidden="true"></span> IA · RAZONAMIENTO LÓGICO
+        </span>
+      </div>
+      <div class="topbar__subtitle">Motor de inferencia por encadenamiento hacia adelante · Búsqueda óptima con Dijkstra</div>
+    </div>
+  </div>
+  <div class="topbar__status" id="estado-red">
+    <span class="dot dot--live" aria-hidden="true"></span>
+    <span id="estado-texto">Cargando red…</span>
+  </div>
+</header>
+
+<nav class="linea-nav" aria-label="Secciones">
+  <button class="parada" data-tab="planificador" aria-current="true">
+    <span class="parada__nodo"></span>
+    <span class="parada__label">Planificador</span>
+  </button>
+  <span class="tramo"></span>
+  <button class="parada" data-tab="mapa">
+    <span class="parada__nodo"></span>
+    <span class="parada__label">Mapa</span>
+  </button>
+  <span class="tramo"></span>
+  <button class="parada" data-tab="red">
+    <span class="parada__nodo"></span>
+    <span class="parada__label">Explorar red</span>
+  </button>
+  <span class="tramo"></span>
+  <button class="parada" data-tab="admin">
+    <span class="parada__nodo"></span>
+    <span class="parada__label">Administración</span>
+  </button>
+  <span class="tramo"></span>
+  <button class="parada" data-tab="diagnostico">
+    <span class="parada__nodo"></span>
+    <span class="parada__label">Diagnóstico</span>
+  </button>
+</nav>
+
+<main class="contenido">
+
+  <!-- ===================== PLANIFICADOR ===================== -->
+  <section class="panel" id="tab-planificador" data-panel>
+    <h1 class="panel__titulo">¿A dónde vas?</h1>
+    <p class="panel__intro">
+      El motor de inferencia calcula la combinación de tramos y transbordos
+      con menor tiempo total entre las dos estaciones que elijas.
+    </p>
+
+    <form class="form-ruta" id="form-ruta">
+      <div class="campo">
+        <label for="input-origen">Origen</label>
+        <input list="lista-estaciones" id="input-origen" name="origen" placeholder="Ej: Portal_Usme" autocomplete="off" required>
+      </div>
+      <button type="button" class="btn-intercambiar" id="btn-intercambiar" title="Intercambiar origen y destino" aria-label="Intercambiar origen y destino">⇅</button>
+      <div class="campo">
+        <label for="input-destino">Destino</label>
+        <input list="lista-estaciones" id="input-destino" name="destino" placeholder="Ej: Portal_Norte" autocomplete="off" required>
+      </div>
+      <datalist id="lista-estaciones"></datalist>
+      <button type="submit" class="btn btn--primario">Calcular ruta</button>
+    </form>
+
+    <div id="panel-pensando" class="panel-pensando" hidden></div>
+    <div id="resultado-ruta" class="resultado" hidden></div>
+  </section>
+
+  <!-- ===================== MAPA INTERACTIVO ===================== -->
+  <section class="panel" id="tab-mapa" data-panel hidden>
+    <h1 class="panel__titulo">Mapa de la red</h1>
+    <p class="panel__intro">
+      Haz clic en una estación para elegir el origen, y en otra para el destino.
+      Vas a ver la búsqueda de Dijkstra explorando el grafo en vivo, nodo por nodo,
+      antes de converger en la ruta óptima.
+    </p>
+    <div class="mapa-barra">
+      <span id="mapa-info" class="mapa-info">Cargando mapa…</span>
+      <button class="btn" id="btn-mapa-reiniciar">Reiniciar selección</button>
+    </div>
+    <div id="mapa-resultado" class="mapa-resultado" hidden></div>
+    <div id="contenedor-mapa" class="contenedor-mapa"></div>
+    <div class="mapa-leyenda">
+      <span><span class="leyenda-punto leyenda-punto--origen"></span> Origen</span>
+      <span><span class="leyenda-punto leyenda-punto--destino"></span> Destino</span>
+      <span><span class="leyenda-punto leyenda-punto--explorado"></span> Nodo explorado por Dijkstra</span>
+      <span><span class="leyenda-punto leyenda-punto--ruta"></span> Ruta óptima elegida</span>
+    </div>
+  </section>
+
+  <!-- ===================== EXPLORAR RED ===================== -->
+  <section class="panel" id="tab-red" data-panel hidden>
+    <h1 class="panel__titulo">Líneas y estaciones</h1>
+    <p class="panel__intro">Cada color corresponde a una línea de la red, derivada de los hechos <code>pertenece(estación, línea)</code>.</p>
+    <div id="lista-lineas" class="lista-lineas"></div>
+  </section>
+
+  <!-- ===================== ADMINISTRACIÓN ===================== -->
+  <section class="panel" id="tab-admin" data-panel hidden>
+    <h1 class="panel__titulo">Administrar la base de conocimiento</h1>
+    <p class="panel__intro">
+      Los cambios agregan hechos nuevos y vuelven a ejecutar el motor de
+      inferencia; no se reinicia nada de lo que ya existía.
+    </p>
+
+    <div class="tarjeta">
+      <h2 class="tarjeta__titulo">Agregar una conexión</h2>
+      <form id="form-conexion" class="form-conexion">
+        <div class="campo">
+          <label for="c-origen">Estación 1</label>
+          <input id="c-origen" required>
+        </div>
+        <div class="campo">
+          <label for="c-destino">Estación 2</label>
+          <input id="c-destino" required>
+        </div>
+        <div class="campo">
+          <label for="c-linea">Línea</label>
+          <input id="c-linea" required>
+        </div>
+        <div class="campo campo--corto">
+          <label for="c-tiempo">Minutos</label>
+          <input id="c-tiempo" type="number" min="0.01" max="180" step="any" required>
+        </div>
+        <button type="submit" class="btn btn--primario">Agregar y volver a inferir</button>
+      </form>
+      <p class="mensaje" id="mensaje-conexion" hidden></p>
+    </div>
+
+    <div class="tarjeta">
+      <h2 class="tarjeta__titulo">Persistencia</h2>
+      <div class="fila-acciones">
+        <button class="btn" id="btn-exportar">Exportar red (JSON)</button>
+        <label class="btn btn--archivo">
+          Importar red (JSON)
+          <input type="file" id="input-importar" accept="application/json" hidden>
+        </label>
+        <button class="btn btn--peligro" id="btn-reiniciar">Restaurar red de ejemplo</button>
+      </div>
+      <p class="mensaje" id="mensaje-persistencia" hidden></p>
+    </div>
+  </section>
+
+  <!-- ===================== DIAGNÓSTICO ===================== -->
+  <section class="panel" id="tab-diagnostico" data-panel hidden>
+    <h1 class="panel__titulo">Diagnóstico del sistema</h1>
+    <p class="panel__intro">Verifica la integridad de la red e inspecciona qué reglas se dispararon en la última inferencia.</p>
+
+    <div class="tarjeta">
+      <h2 class="tarjeta__titulo">Integridad de la red</h2>
+      <button class="btn" id="btn-integridad">Verificar integridad</button>
+      <div id="resultado-integridad" class="resultado-integridad"></div>
+    </div>
+
+    <div class="tarjeta">
+      <h2 class="tarjeta__titulo">Traza del motor de inferencia</h2>
+      <button class="btn" id="btn-traza">Ver traza</button>
+      <pre id="salida-traza" class="terminal" hidden></pre>
+    </div>
+  </section>
+
+</main>
+
+<script src="motor.js"></script>
+<script src="mapa.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
